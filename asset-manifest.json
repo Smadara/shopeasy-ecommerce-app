@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/shopeasy-ecommerce-app/static/css/main.a0a22035.css",
+    "main.js": "/shopeasy-ecommerce-app/static/js/main.3fdebc03.js",
+    "index.html": "/shopeasy-ecommerce-app/index.html",
+    "main.a0a22035.css.map": "/shopeasy-ecommerce-app/static/css/main.a0a22035.css.map",
+    "main.3fdebc03.js.map": "/shopeasy-ecommerce-app/static/js/main.3fdebc03.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a0a22035.css",
+    "static/js/main.3fdebc03.js"
+  ]
+}
