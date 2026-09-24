@@ -1,12 +1,54 @@
 const express = require('express');
-const Order = require('../models/Order');
+const db = require('../config/db');
 const { protect, admin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// @route   POST /api/orders
-// @desc    Create new order (checkout)
+const formatOrderItem = (item) => ({
+  _id: item.id,
+  product: item.product_id,
+  name: item.name,
+  qty: item.qty,
+  image: item.image,
+  price: Number(item.price),
+});
+
+const formatOrder = (order, items = []) => ({
+  _id: order.id,
+
+  user: order.user
+    ? order.user
+    : order.user_id,
+
+  orderItems: items.map(formatOrderItem),
+
+  paymentMethod: order.payment_method,
+
+  itemsPrice: Number(order.items_price),
+  shippingPrice: Number(order.shipping_price),
+  totalPrice: Number(order.total_price),
+
+  shippingAddress: {
+    address: order.shipping_address,
+    city: order.shipping_city,
+    postalCode: order.shipping_postal_code,
+    country: order.shipping_country,
+  },
+
+  isPaid: Boolean(order.is_paid),
+  paidAt: order.paid_at,
+
+  isDelivered: Boolean(order.is_delivered),
+  deliveredAt: order.delivered_at,
+
+  createdAt: order.created_at,
+  updatedAt: order.updated_at,
+});
+
+
 router.post('/', protect, async (req, res) => {
+  let connection;
+
   try {
     const {
       orderItems,
@@ -17,79 +59,252 @@ router.post('/', protect, async (req, res) => {
       totalPrice,
     } = req.body;
 
-    if (orderItems && orderItems.length === 0) {
-      return res.status(400).json({ message: 'No order items' });
+    if (!orderItems || orderItems.length === 0) {
+      return res.status(400).json({
+        message: 'No order items',
+      });
     }
 
-    const order = new Order({
-      user: req.user._id,
-      orderItems,
-      shippingAddress,
-      paymentMethod,
-      itemsPrice,
-      shippingPrice,
-      totalPrice,
-    });
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    const createdOrder = await order.save();
-    res.status(201).json(createdOrder);
+    const [orderResult] = await connection.query(
+      `INSERT INTO orders
+      (
+        user_id,
+        payment_method,
+        items_price,
+        shipping_price,
+        total_price,
+        shipping_address,
+        shipping_city,
+        shipping_postal_code,
+        shipping_country
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.user._id,
+        paymentMethod || 'Cash on Delivery',
+        itemsPrice,
+        shippingPrice,
+        totalPrice,
+        shippingAddress.address,
+        shippingAddress.city,
+        shippingAddress.postalCode,
+        shippingAddress.country,
+      ]
+    );
+
+    const orderId = orderResult.insertId;
+
+    for (const item of orderItems) {
+      await connection.query(
+        `INSERT INTO order_items
+        (
+          order_id,
+          product_id,
+          name,
+          qty,
+          image,
+          price
+        )
+        VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          orderId,
+          item.product,
+          item.name,
+          item.qty,
+          item.image,
+          item.price,
+        ]
+      );
+    }
+
+    await connection.commit();
+
+    const [orders] = await db.query(
+      'SELECT * FROM orders WHERE id = ?',
+      [orderId]
+    );
+
+    const [items] = await db.query(
+      'SELECT * FROM order_items WHERE order_id = ?',
+      [orderId]
+    );
+
+    const order = formatOrder(orders[0], items);
+
+    res.status(201).json(order);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    if (connection) {
+      await connection.rollback();
+    }
+
+    console.error(error);
+
+    res.status(500).json({
+      message: error.message,
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
-// @route   GET /api/orders/myorders
-// @desc    Get logged in user's orders
+
 router.get('/myorders', protect, async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user._id });
+    const [orders] = await db.query(
+      `SELECT * FROM orders
+       WHERE user_id = ?
+       ORDER BY created_at DESC`,
+      [req.user._id]
+    );
+
+    for (const order of orders) {
+      const [items] = await db.query(
+        'SELECT * FROM order_items WHERE order_id = ?',
+        [order.id]
+      );
+
+      order.user = req.user;
+
+      Object.assign(order, formatOrder(order, items));
+    }
+
     res.json(orders);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 });
 
-// @route   GET /api/orders/:id
-// @desc    Get order by ID
+
 router.get('/:id', protect, async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate('user', 'name email');
-    if (order) {
-      res.json(order);
-    } else {
-      res.status(404).json({ message: 'Order not found' });
+    const [orders] = await db.query(
+      `SELECT
+        orders.*,
+        users.name AS user_name,
+        users.email AS user_email
+       FROM orders
+       JOIN users ON orders.user_id = users.id
+       WHERE orders.id = ?`,
+      [req.params.id]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({
+        message: 'Order not found',
+      });
     }
+
+    const orderData = orders[0];
+
+    const [items] = await db.query(
+      'SELECT * FROM order_items WHERE order_id = ?',
+      [req.params.id]
+    );
+
+    orderData.user = {
+      _id: orderData.user_id,
+      name: orderData.user_name,
+      email: orderData.user_email,
+    };
+
+    const order = formatOrder(orderData, items);
+
+    res.json(order);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+
+    res.status(500).json({
+      message: error.message,
+    });
   }
 });
 
-// @route   GET /api/orders
-// @desc    Get all orders (Admin only)
 router.get('/', protect, admin, async (req, res) => {
   try {
-    const orders = await Order.find({}).populate('user', 'id name');
-    res.json(orders);
+    const [orders] = await db.query(
+      `SELECT
+        orders.*,
+        users.name AS user_name,
+        users.email AS user_email
+       FROM orders
+       JOIN users ON orders.user_id = users.id
+       ORDER BY orders.created_at DESC`
+    );
+
+    const formattedOrders = [];
+
+    for (const order of orders) {
+      const [items] = await db.query(
+        'SELECT * FROM order_items WHERE order_id = ?',
+        [order.id]
+      );
+
+      order.user = {
+        _id: order.user_id,
+        name: order.user_name,
+        email: order.user_email,
+      };
+
+      formattedOrders.push(formatOrder(order, items));
+    }
+
+    res.json(formattedOrders);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 });
 
-// @route   PUT /api/orders/:id/deliver
-// @desc    Mark order as delivered (Admin only)
+
 router.put('/:id/deliver', protect, admin, async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
-    if (order) {
-      order.isDelivered = true;
-      order.deliveredAt = Date.now();
-      const updatedOrder = await order.save();
-      res.json(updatedOrder);
-    } else {
-      res.status(404).json({ message: 'Order not found' });
+    const [orders] = await db.query(
+      'SELECT * FROM orders WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({
+        message: 'Order not found',
+      });
     }
+
+    await db.query(
+      `UPDATE orders
+       SET is_delivered = ?, delivered_at = ?
+       WHERE id = ?`,
+      [true, new Date(), req.params.id]
+    );
+
+    const [updatedOrders] = await db.query(
+      'SELECT * FROM orders WHERE id = ?',
+      [req.params.id]
+    );
+
+    const [items] = await db.query(
+      'SELECT * FROM order_items WHERE order_id = ?',
+      [req.params.id]
+    );
+
+    updatedOrders[0].user = req.user;
+
+    const updatedOrder = formatOrder(updatedOrders[0], items);
+
+    res.json(updatedOrder);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error(error);
+
+    res.status(500).json({
+      message: error.message,
+    });
   }
 });
 

@@ -1,15 +1,7 @@
-// Run this with: node seeder.js
-// It creates one admin user and a few sample products so you can test the site right away.
-
 require('dotenv').config();
 
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const User = require('./models/User');
-const Product = require('./models/Product');
-
-dotenv.config();
-connectDB();
+const db = require('./config/db');
+const bcrypt = require('bcryptjs');
 
 const products = [
   {
@@ -44,7 +36,6 @@ const products = [
     category: 'Fashion',
     countInStock: 10,
   },
-
   {
     name: 'Wireless Headphones',
     description: 'Noise-cancelling over-ear wireless headphones with 30hr battery life.',
@@ -101,15 +92,13 @@ const products = [
     category: 'Electronics',
     countInStock: 12,
   },
-  
   {
-      name: 'Makeup Brush Set',
-      description: 'Professional makeup brush set with soft synthetic bristles.',
-      price: 4800.00,
-      image: 'https://images.unsplash.com/photo-1620464003286-a5b0d79f32c2?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8bWFrZXVwJTIwYnJ1c2h8ZW58MHx8MHx8fDA%3D',
-      category: 'Beauty',
-      countInStock: 10,
-    
+    name: 'Makeup Brush Set',
+    description: 'Professional makeup brush set with soft synthetic bristles.',
+    price: 4800.00,
+    image: 'https://images.unsplash.com/photo-1620464003286-a5b0d79f32c2?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8bWFrZXVwJTIwYnJ1c2h8ZW58MHx8MHx8fDA%3D',
+    category: 'Beauty',
+    countInStock: 10,
   },
   {
     name: 'Matte Lipstick',
@@ -122,24 +111,73 @@ const products = [
 ];
 
 const importData = async () => {
+  let connection;
+
   try {
-    await Product.deleteMany();
-    await User.deleteMany();
+    connection = await db.getConnection();
 
-    await User.create({
-      name: 'Admin User',
-      email: 'admin@example.com',
-      password: 'admin123',
-      isAdmin: true,
-    });
+    await connection.beginTransaction();
 
-    await Product.insertMany(products);
+    await connection.query('DELETE FROM order_items');
+    await connection.query('DELETE FROM orders');
+    await connection.query('DELETE FROM products');
+    await connection.query('DELETE FROM users');
 
-    console.log('Data Imported! Admin login -> email: admin@example.com / password: admin123');
-    process.exit();
+    await connection.query('ALTER TABLE users AUTO_INCREMENT = 1');
+    await connection.query('ALTER TABLE products AUTO_INCREMENT = 1');
+    await connection.query('ALTER TABLE orders AUTO_INCREMENT = 1');
+    await connection.query('ALTER TABLE order_items AUTO_INCREMENT = 1');
+
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+
+    await connection.query(
+      `INSERT INTO users
+      (name, email, password, is_admin)
+      VALUES (?, ?, ?, ?)`,
+      [
+        'Admin User',
+        'admin@example.com',
+        hashedPassword,
+        true,
+      ]
+    );
+
+    for (const product of products) {
+      await connection.query(
+        `INSERT INTO products
+        (name, description, price, image, category, count_in_stock)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          product.name,
+          product.description,
+          product.price,
+          product.image,
+          product.category,
+          product.countInStock,
+        ]
+      );
+    }
+
+    
+    await connection.commit();
+
+    console.log('Data Imported!');
+    console.log(
+      'Admin login -> email: admin@example.com / password: admin123'
+    );
+
+    process.exit(0);
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+
     console.error(`Error: ${error.message}`);
     process.exit(1);
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 };
 

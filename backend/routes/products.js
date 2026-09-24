@@ -1,99 +1,232 @@
 const express = require('express');
-const Product = require('../models/Product');
+const db = require('../config/db');
 const { protect, admin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// @route   GET /api/products
-// @desc    Get all products (supports ?keyword= search and ?category=)
+
 router.get('/', async (req, res) => {
   try {
-    const keyword = req.query.keyword
-      ? { name: { $regex: req.query.keyword, $options: 'i' } }
-      : {};
+    const { keyword, category } = req.query;
 
-    const category = req.query.category ? { category: req.query.category } : {};
+    let sql = 'SELECT * FROM products';
+    const conditions = [];
+    const values = [];
 
-    const products = await Product.find({ ...keyword, ...category });
-    res.json(products);
+    if (keyword) {
+      conditions.push('name LIKE ?');
+      values.push(`%${keyword}%`);
+    }
+
+    if (category) {
+      conditions.push('category = ?');
+      values.push(category);
+    }
+
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    const [products] = await db.query(sql, values);
+
+    
+    const formattedProducts = products.map((product) => ({
+      _id: product.id,
+      name: product.name,
+      description: product.description,
+      price: Number(product.price),
+      image: product.image,
+      category: product.category,
+      countInStock: product.count_in_stock,
+      rating: Number(product.rating),
+      numReviews: product.num_reviews,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+    }));
+
+    res.json(formattedProducts);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// @route   GET /api/products/:id
-// @desc    Get single product
+
 router.get('/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
-    if (product) {
-      res.json(product);
+    const [products] = await db.query(
+      'SELECT * FROM products WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (products.length > 0) {
+      const product = products[0];
+
+      
+      res.json({
+        _id: product.id,
+        name: product.name,
+        description: product.description,
+        price: Number(product.price),
+        image: product.image,
+        category: product.category,
+        countInStock: product.count_in_stock,
+        rating: Number(product.rating),
+        numReviews: product.num_reviews,
+        createdAt: product.created_at,
+        updatedAt: product.updated_at,
+      });
     } else {
-      res.status(404).json({ message: 'Product not found' });
+      res.status(404).json({
+        message: 'Product not found',
+      });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// @route   POST /api/products
-// @desc    Create a product (Admin only)
+
 router.post('/', protect, admin, async (req, res) => {
   try {
-    const { name, description, price, image, category, countInStock } = req.body;
-
-    const product = new Product({
+    const {
       name,
       description,
       price,
       image,
       category,
       countInStock,
-    });
+    } = req.body;
 
-    const createdProduct = await product.save();
-    res.status(201).json(createdProduct);
+    const [result] = await db.query(
+      `INSERT INTO products
+      (name, description, price, image, category, count_in_stock)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        name,
+        description,
+        price,
+        image,
+        category,
+        countInStock,
+      ]
+    );
+
+    const [products] = await db.query(
+      'SELECT * FROM products WHERE id = ?',
+      [result.insertId]
+    );
+
+    const product = products[0];
+
+    res.status(201).json({
+      _id: product.id,
+      name: product.name,
+      description: product.description,
+      price: Number(product.price),
+      image: product.image,
+      category: product.category,
+      countInStock: product.count_in_stock,
+      rating: Number(product.rating),
+      numReviews: product.num_reviews,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// @route   PUT /api/products/:id
-// @desc    Update a product (Admin only)
 router.put('/:id', protect, admin, async (req, res) => {
   try {
-    const { name, description, price, image, category, countInStock } = req.body;
-    const product = await Product.findById(req.params.id);
+    const {
+      name,
+      description,
+      price,
+      image,
+      category,
+      countInStock,
+    } = req.body;
 
-    if (product) {
-      product.name = name || product.name;
-      product.description = description || product.description;
-      product.price = price ?? product.price;
-      product.image = image || product.image;
-      product.category = category || product.category;
-      product.countInStock = countInStock ?? product.countInStock;
+    const [products] = await db.query(
+      'SELECT * FROM products WHERE id = ?',
+      [req.params.id]
+    );
 
-      const updatedProduct = await product.save();
-      res.json(updatedProduct);
-    } else {
-      res.status(404).json({ message: 'Product not found' });
+    if (products.length === 0) {
+      return res.status(404).json({
+        message: 'Product not found',
+      });
     }
+
+    const product = products[0];
+
+    await db.query(
+      `UPDATE products
+       SET name = ?,
+           description = ?,
+           price = ?,
+           image = ?,
+           category = ?,
+           count_in_stock = ?
+       WHERE id = ?`,
+      [
+        name || product.name,
+        description || product.description,
+        price ?? product.price,
+        image || product.image,
+        category || product.category,
+        countInStock ?? product.count_in_stock,
+        req.params.id,
+      ]
+    );
+
+    const [updatedProducts] = await db.query(
+      'SELECT * FROM products WHERE id = ?',
+      [req.params.id]
+    );
+
+    const updatedProduct = updatedProducts[0];
+
+    res.json({
+      _id: updatedProduct.id,
+      name: updatedProduct.name,
+      description: updatedProduct.description,
+      price: Number(updatedProduct.price),
+      image: updatedProduct.image,
+      category: updatedProduct.category,
+      countInStock: updatedProduct.count_in_stock,
+      rating: Number(updatedProduct.rating),
+      numReviews: updatedProduct.num_reviews,
+      createdAt: updatedProduct.created_at,
+      updatedAt: updatedProduct.updated_at,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// @route   DELETE /api/products/:id
-// @desc    Delete a product (Admin only)
+
 router.delete('/:id', protect, admin, async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
-    if (product) {
-      await product.deleteOne();
-      res.json({ message: 'Product removed' });
-    } else {
-      res.status(404).json({ message: 'Product not found' });
+    const [products] = await db.query(
+      'SELECT * FROM products WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (products.length === 0) {
+      return res.status(404).json({
+        message: 'Product not found',
+      });
     }
+
+    await db.query(
+      'DELETE FROM products WHERE id = ?',
+      [req.params.id]
+    );
+
+    res.json({
+      message: 'Product removed',
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
