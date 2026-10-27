@@ -54,7 +54,7 @@ const Login = () => {
         </Link>
       </p>
       <p className="mt-2 text-xs text-gray-500">
-        Admin test login: admin@example.com / admin123 (after running the seeder)
+        Admin test login: admin@example.com / admin123 
       </p>
     </div>
   );

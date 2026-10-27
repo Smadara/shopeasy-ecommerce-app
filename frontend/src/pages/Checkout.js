@@ -32,7 +32,7 @@ const Checkout = () => {
 
       const { data } = await api.post('/orders', {
         orderItems,
-        shippingAddress: { address, city, postalCode, country },
+        shippingAddress: { address, city, postalCode, country, Mobile },
         paymentMethod: 'Cash on Delivery', 
         itemsPrice,
         shippingPrice,
@@ -90,6 +90,7 @@ const Checkout = () => {
           required
           className="w-full border rounded px-3 py-2"
         />
+      
 
         <div className="border-t pt-4 space-y-1">
           <p>Items: ${itemsPrice.toFixed(2)}</p>

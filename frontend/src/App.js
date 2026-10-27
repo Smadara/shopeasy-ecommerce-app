@@ -11,7 +11,7 @@ import OrderDetail from './pages/OrderDetail';
 import MyOrders from './pages/MyOrders';
 import Admin from './pages/Admin';
 import { PrivateRoute, AdminRoute } from './components/PrivateRoute';
-
+import Footer from './components/Footer';
 
 function App() {
   return (
@@ -56,6 +56,8 @@ function App() {
           }
         />
       </Routes>
+      <Footer />
+  
     </div>
   );
 }
