@@ -29,6 +29,8 @@ const formatOrder = (order, items = []) => ({
   totalPrice: Number(order.total_price),
 
   shippingAddress: {
+    fullName: order.shipping_name,
+    phone: order.shipping_phone,
     address: order.shipping_address,
     city: order.shipping_city,
     postalCode: order.shipping_postal_code,
@@ -76,18 +78,22 @@ router.post('/', protect, async (req, res) => {
         items_price,
         shipping_price,
         total_price,
+        shipping_name,
+        shipping_phone,
         shipping_address,
         shipping_city,
         shipping_postal_code,
         shipping_country
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user._id,
         paymentMethod || 'Cash on Delivery',
         itemsPrice,
         shippingPrice,
         totalPrice,
+        shippingAddress.fullName,
+        shippingAddress.phone,
         shippingAddress.address,
         shippingAddress.city,
         shippingAddress.postalCode,

@@ -130,7 +130,7 @@ const Admin = () => {
                 <tr key={p._id} className="border-b">
                   <td className="py-2">{p.name}</td>
                   <td className="py-2">{p.category}</td>
-                  <td className="py-2">${p.price.toFixed(2)}</td>
+                  <td className="py-2">Rs.{p.price.toFixed(2)}</td>
                   <td className="py-2">{p.countInStock}</td>
                   <td className="py-2 flex gap-2">
                     <button onClick={() => handleEdit(p)} className="text-blue-600 underline">
@@ -163,7 +163,7 @@ const Admin = () => {
               <tr key={o._id} className="border-b">
                 <td className="py-2">{o._id}</td>
                 <td className="py-2">{o.user?.name}</td>
-                <td className="py-2">${o.totalPrice.toFixed(2)}</td>
+                <td className="py-2">Rs.{o.totalPrice.toFixed(2)}</td>
                 <td className="py-2">{o.isDelivered ? 'Yes' : 'No'}</td>
                 <td className="py-2">
                   {!o.isDelivered && (

@@ -2,10 +2,15 @@ import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { CartContext } from '../context/CartContext';
+import { AuthContext } from '../context/AuthContext';
 
 const Checkout = () => {
   const { cartItems, clearCart } = useContext(CartContext);
+  const { userInfo } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const [fullName, setFullName] = useState(userInfo?.name || '');
+  const [phone, setPhone] = useState('');
 
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -20,6 +25,7 @@ const Checkout = () => {
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
+    setError('');
     setPlacing(true);
     try {
       const orderItems = cartItems.map((item) => ({
@@ -32,7 +38,7 @@ const Checkout = () => {
 
       const { data } = await api.post('/orders', {
         orderItems,
-        shippingAddress: { address, city, postalCode, country },
+        shippingAddress: { fullName, phone, address, city, postalCode, country },
         paymentMethod: 'Cash on Delivery', 
         itemsPrice,
         shippingPrice,
@@ -58,6 +64,24 @@ const Checkout = () => {
       {error && <p className="text-red-600 mb-4">{error}</p>}
 
       <form onSubmit={handlePlaceOrder} className="space-y-4 mb-8">
+        <input
+          type="text"
+          placeholder="Full Name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          required
+          className="w-full border rounded px-3 py-2"
+        />
+        <input
+          type="tel"
+          placeholder="Phone Number (e.g. 0771234567)"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          required
+          pattern="[0-9+\s-]{9,15}"
+          title="Enter a valid phone number"
+          className="w-full border rounded px-3 py-2"
+        />
         <input
           type="text"
           placeholder="Address"
@@ -93,9 +117,9 @@ const Checkout = () => {
       
 
         <div className="border-t pt-4 space-y-1">
-          <p>Items: ${itemsPrice.toFixed(2)}</p>
-          <p>Shipping: ${shippingPrice.toFixed(2)}</p>
-          <p className="font-bold text-lg">Total: ${totalPrice.toFixed(2)}</p>
+          <p>Items: Rs.{itemsPrice.toFixed(2)}</p>
+          <p>Shipping: Rs.{shippingPrice.toFixed(2)}</p>
+          <p className="font-bold text-lg">Total: Rs.{totalPrice.toFixed(2)}</p>
         </div>
 
         <button

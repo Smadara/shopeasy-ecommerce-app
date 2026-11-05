@@ -38,7 +38,7 @@ const Cart = () => {
                 <Link to={`/product/${item._id}`} className="flex-1 font-medium">
                   {item.name}
                 </Link>
-                <span>${item.price.toFixed(2)}</span>
+                <span>Rs.{item.price.toFixed(2)}</span>
                 <select
                   value={item.qty}
                   onChange={(e) => updateQty(item._id, e.target.value)}
@@ -61,7 +61,7 @@ const Cart = () => {
           </div>
 
           <div className="flex items-center justify-between border-t pt-4">
-            <span className="text-xl font-bold">Total: ${total.toFixed(2)}</span>
+            <span className="text-xl font-bold">Total: Rs.{total.toFixed(2)}</span>
             <button
               onClick={() => navigate('/checkout')}
               className="bg-gray-900 text-white px-6 py-2 rounded hover:bg-gray-700"

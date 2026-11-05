@@ -29,6 +29,10 @@ const OrderDetail = () => {
 
       <div className="border rounded p-4 mb-6">
         <h2 className="font-semibold mb-2">Shipping Address</h2>
+        {order.shippingAddress.fullName && (
+          <p>{order.shippingAddress.fullName}</p>
+        )}
+        {order.shippingAddress.phone && <p>{order.shippingAddress.phone}</p>}
         <p>
           {order.shippingAddress.address}, {order.shippingAddress.city},{' '}
           {order.shippingAddress.postalCode}, {order.shippingAddress.country}
@@ -50,15 +54,15 @@ const OrderDetail = () => {
             <span>
               {item.name} x {item.qty}
             </span>
-            <span>${(item.price * item.qty).toFixed(2)}</span>
+            <span>Rs{(item.price * item.qty).toFixed(2)}</span>
           </div>
         ))}
       </div>
 
       <div className="border rounded p-4 space-y-1">
-        <p>Items Price: ${order.itemsPrice.toFixed(2)}</p>
-        <p>Shipping: ${order.shippingPrice.toFixed(2)}</p>
-        <p className="font-bold text-lg">Total: ${order.totalPrice.toFixed(2)}</p>
+        <p>Items Price: Rs.{order.itemsPrice.toFixed(2)}</p>
+        <p>Shipping: Rs.{order.shippingPrice.toFixed(2)}</p>
+        <p className="font-bold text-lg">Total: Rs.{order.totalPrice.toFixed(2)}</p>
       </div>
     </div>
   );

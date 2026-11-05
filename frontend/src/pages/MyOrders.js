@@ -41,7 +41,7 @@ const MyOrders = () => {
               <tr key={order._id} className="border-b">
                 <td className="py-2">{order._id}</td>
                 <td className="py-2">{new Date(order.createdAt).toLocaleDateString()}</td>
-                <td className="py-2">${order.totalPrice.toFixed(2)}</td>
+                <td className="py-2">Rs.{order.totalPrice.toFixed(2)}</td>
                 <td className="py-2">{order.isDelivered ? 'Yes' : 'No'}</td>
                 <td className="py-2">
                   <Link to={`/order/${order._id}`} className="text-blue-600 underline">
