@@ -32,7 +32,7 @@ const Checkout = () => {
 
       const { data } = await api.post('/orders', {
         orderItems,
-        shippingAddress: { address, city, postalCode, country, Mobile },
+        shippingAddress: { address, city, postalCode, country },
         paymentMethod: 'Cash on Delivery', 
         itemsPrice,
         shippingPrice,
